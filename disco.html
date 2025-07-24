@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Disco Vibes Visualizer</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      body {
+        position: relative;
+        background: #111;
+      }
+
+      canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      /* 背景マイケル画像 */
+      #michael-background {
+        position: absolute;
+        top: 50%;
+        left: -300px;
+        transform: translateY(-50%);
+        width: 300px;
+        height: auto;
+        z-index: 2;
+        opacity: 0;
+        animation: move-michael 10s linear infinite;
+        pointer-events: none;
+      }
+
+      #status,
+      #toggleDisco,
+      #playDisco,
+      #toggleMichael {
+        position: absolute;
+        z-index: 3;
+        font-size: 1.5rem;
+        color: white;
+      }
+
+      #status {
+        top: 20px;
+        left: 20px;
+        font-size: 2rem;
+      }
+
+      #toggleDisco {
+        top: 20px;
+        right: 20px;
+        background-color: #ff00aa;
+      }
+      #toggleMichael {
+        top: 60px;
+        right: 20px;
+        background-color: #ff00aa;
+      }
+      @keyframes move-michael {
+        0% {
+          left: -300px;
+        }
+        100% {
+          left: 100vw;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status"></div>
+    <button id="toggleDisco">▶️ DISCO MODE</button>
+    <button id="toggleMichael">🕺 MJ MODE</button>
+    <img id="michael-background" src="michael.png" />
+
+    <script type="module">
+      import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js";
+
+      let scene = new THREE.Scene();
+      let camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 10, 20);
+      camera.lookAt(0, 0, 0);
+
+      let renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      document.body.appendChild(renderer.domElement);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+      const mainLight = new THREE.PointLight(0xffffff, 1, 100);
+      mainLight.position.set(0, 10, 20);
+      scene.add(mainLight);
+
+      const tiles = [];
+      const tileSize = 2;
+      for (let x = -10; x <= 10; x += tileSize) {
+        for (let z = -10; z <= 10; z += tileSize) {
+          const tile = new THREE.Mesh(
+            new THREE.BoxGeometry(tileSize, 0.1, tileSize),
+            new THREE.MeshStandardMaterial({
+              color: new THREE.Color().setHSL(Math.random(), 1, 0.5),
+            })
+          );
+          tile.position.set(x, 0, z);
+          scene.add(tile);
+          tiles.push(tile);
+        }
+      }
+
+      const geometry = new THREE.SphereGeometry(2.5, 32, 16);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xaaaaee,
+        metalness: 0.9,
+        roughness: 0.4,
+        flatShading: true,
+        emissive: new THREE.Color(0xaaaaee),
+        emissiveIntensity: 0.2,
+      });
+      const mirrorBall = new THREE.Mesh(geometry, material);
+      mirrorBall.position.set(0, 8, 0);
+      scene.add(mirrorBall);
+
+      const discoLights = [];
+      for (let i = 0; i < 6; i++) {
+        const light = new THREE.PointLight(0xffffff, 1.5, 10);
+        const angle = (i / 6) * Math.PI * 2;
+        light.position.set(Math.cos(angle) * 5, 8, Math.sin(angle) * 5);
+        scene.add(light);
+        discoLights.push(light);
+      }
+
+      const status = document.getElementById("status");
+      const playDisco = document.getElementById("playDisco");
+
+      let discoMode = false;
+      let discoAudio;
+      let mjMode = false;
+
+      const toggleDisco = document.getElementById("toggleDisco");
+      const toggleMichael = document.getElementById("toggleMichael");
+
+      toggleDisco.addEventListener("click", () => {
+        discoMode = !discoMode;
+
+        if (discoMode) {
+          status.textContent = "Dance!🕺💃";
+          toggleDisco.textContent = "⏹️ STOP DISCO";
+          if (!discoAudio) {
+            discoAudio = new Audio("disco.mp3");
+            discoAudio.loop = true;
+          }
+          discoAudio.play();
+          // document.getElementById("michael-background").style.opacity = "1";
+        } else {
+          status.textContent = "";
+          toggleDisco.textContent = "▶️ DISCO MODE";
+          if (discoAudio) discoAudio.pause();
+
+          // タイルを暗く戻す
+          for (const tile of tiles) {
+            tile.material.color.set(0x222222);
+          }
+          // ライトを消す
+          discoLights.forEach((light) => (light.intensity = 0));
+          // document.getElementById("michael-background").style.opacity = "0";
+        }
+      });
+
+      toggleMichael.addEventListener("click", () => {
+        mjMode = !mjMode;
+
+        if (discoMode && mjMode) {
+          toggleMichael.textContent = "⏹️ STOP MJ MODE";
+
+          document.getElementById("michael-background").style.opacity = "1";
+        } else {
+          toggleMichael.textContent = "🕺 MJ MODE";
+
+          document.getElementById("michael-background").style.opacity = "0";
+        }
+      });
+
+      let avg = 0;
+      let lastTileFlashTime = 0;
+      const flashDuration = 1300;
+      let lastTileUpdateTime = 0;
+      const discoTileInterval = 100;
+      let lastMicTileChangeTime = 0;
+      const micTileInterval = 100;
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const now = performance.now();
+
+        // if (discoMode) {
+        //   // 常に光る演出
+        //   mirrorBall.rotation.y += 0.03;
+        //   for (const tile of tiles) {
+        //     tile.material.color.setHSL(Math.random(), 1.0, 0.5);
+        //   }
+        //   discoLights.forEach((light, i) => {
+        //     const hue = (now * 0.0003 + i / 6) % 1;
+        //     light.color.setHSL(hue, 1, 0.6);
+        //     light.intensity = 1.5;
+        //   });
+        // }
+
+        if (discoMode) {
+          mirrorBall.rotation.y += 0.03;
+
+          // タイルの色を一定間隔で更新
+          if (now - lastTileUpdateTime > discoTileInterval) {
+            for (const tile of tiles) {
+              tile.material.color.setHSL(Math.random(), 1.0, 0.5);
+            }
+            lastTileUpdateTime = now;
+          }
+
+          // ライトの色（これは常にアニメーションでOK）
+          discoLights.forEach((light, i) => {
+            const hue = (now * 0.0003 + i / 6) % 1;
+            light.color.setHSL(hue, 1, 0.6);
+            light.intensity = 1.5;
+          });
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      if (!discoMode) {
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            const audioCtx = new (window.AudioContext ||
+              window.webkitAudioContext)();
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            source.connect(analyser);
+
+            let prevAvg = 0,
+              lastBeatTime = 0,
+              beatCount = 0,
+              beatIntervalSum = 0;
+
+            function analyze() {
+              requestAnimationFrame(analyze);
+              if (discoMode) return;
+
+              analyser.getByteFrequencyData(dataArray);
+              avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+              const now = performance.now();
+
+              mirrorBall.rotation.y += avg > 80 ? 0.03 : 0;
+
+              if (avg > 100) {
+                lastTileFlashTime = now;
+              }
+
+              if (now - lastTileFlashTime < flashDuration) {
+                if (now - lastMicTileChangeTime > micTileInterval) {
+                  for (const tile of tiles) {
+                    tile.material.color.setHSL(Math.random(), 1.0, 0.5);
+                  }
+                  lastMicTileChangeTime = now;
+                }
+                if (mjMode) {
+                  document.getElementById("michael-background").style.opacity =
+                    "1";
+                } else {
+                  document.getElementById("michael-background").style.opacity =
+                    "0";
+                }
+              } else {
+                document.getElementById("michael-background").style.opacity =
+                  "0";
+
+                for (const tile of tiles) {
+                  tile.material.color.set(0x222222);
+                }
+              }
+
+              discoLights.forEach((light, i) => {
+                const hue = (now * 0.0003 + i / 6) % 1;
+                light.color.setHSL(hue, 1, 0.6);
+                light.intensity = avg > 100 ? 1.5 : 0;
+              });
+
+              if (avg - prevAvg > 10) {
+                const interval = now - lastBeatTime;
+                lastBeatTime = now;
+                if (interval > 200 && interval < 1000) {
+                  beatCount++;
+                  beatIntervalSum += interval;
+                }
+                if (beatCount >= 5) {
+                  const bpm = 60000 / (beatIntervalSum / beatCount);
+                  status.textContent = bpm > 100 ? `💃🕺💃🕺` : `👫👫`;
+                  beatCount = 0;
+                  beatIntervalSum = 0;
+                }
+              }
+
+              prevAvg = avg;
+            }
+
+            analyze();
+          })
+          .catch((err) => {
+            console.error("マイクが使えません:", err);
+            status.textContent = "マイク許可が必要です！";
+          });
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
