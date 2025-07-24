@@ -4,6 +4,6 @@ michael.jpgはお好きなアーティストの写真で置き換えてくださ
 
 ### Credits
 
-- Background music: "disco.mp3"  
-  Source: [Pixabay](https://pixabay.com)  
-  License: [Pixabay Content License](https://pixabay.com/service/license/)
+- Background music: "Summer Disco" by [9JackJack8](https://pixabay.com/users/9jackjack8-44663645/)  
+  Provided by [Pixabay](https://pixabay.com)  
+  Licensed under the [Pixabay Content License](https://pixabay.com/service/license/)
